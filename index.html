@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -170,6 +131,12 @@
     >
       Download Conversation
     </button>
+    <button
+      id="clearButton"
+      class="w-full bg-red-500 text-white p-2 rounded-lg mb-4 hover:bg-red-600"
+    >
+      Clear Chat
+    </button>
     <div class="flex">
       <textarea
         id="userInput"
@@ -203,11 +170,52 @@
     const downloadButton = document.getElementById('downloadButton');
     const editButton = document.getElementById('editButton');
     const copyButton = document.getElementById('copyButton');
+    const clearButton = document.getElementById('clearButton');
 
     // Conversation history
     let conversationHistory = [];
     let isEditing = false;
     let editingMessageId = null;
+
+    // Load settings and input from localStorage
+    function loadSettings() {
+      apiKeyInput.value = localStorage.getItem('grok_api_key') || 'YOUR_API_KEY_HERE';
+      modelInput.value = localStorage.getItem('grok_model') || 'grok-3';
+      maxTokensInput.value = localStorage.getItem('grok_max_tokens') || '500';
+      systemPromptInput.value = localStorage.getItem('grok_system_prompt') || 
+        'You are Grok, a helpful AI created by xAI. Provide accurate and concise answers. For complex questions, include step-by-step reasoning before giving the final answer, formatted in markdown.';
+      userInput.value = localStorage.getItem('grok_user_input') || '';
+      adjustTextareaHeight();
+    }
+
+    // Save settings to localStorage
+    function saveSetting(key, value) {
+      localStorage.setItem(key, value);
+    }
+
+    // Save conversation history to localStorage
+    function saveConversationHistory() {
+      localStorage.setItem('grok_conversation_history', JSON.stringify(conversationHistory));
+    }
+
+    // Load conversation history from localStorage
+    function loadConversationHistory() {
+      const savedHistory = localStorage.getItem('grok_conversation_history');
+      if (savedHistory) {
+        conversationHistory = JSON.parse(savedHistory);
+        conversationHistory.forEach((msg) => {
+          if (msg.content.trim()) {
+            addOrUpdateMessage(msg.content, msg.role === 'user');
+          }
+        });
+      } else {
+        // Initialize with welcome message
+        const welcomeMessage = 'Hello! I am Grok, created by xAI. Configure the settings above and type your message below to start chatting!';
+        addOrUpdateMessage(welcomeMessage, false);
+        conversationHistory.push({ role: 'assistant', content: welcomeMessage });
+        saveConversationHistory();
+      }
+    }
 
     // Toggle settings section
     let isSettingsCollapsed = true;
@@ -232,11 +240,17 @@
       userInput.style.height = `${newHeight}px`;
     }
 
-    // Event listener for textarea input to adjust height
-    userInput.addEventListener('input', adjustTextareaHeight);
+    // Event listener for textarea input to adjust height and save
+    userInput.addEventListener('input', () => {
+      adjustTextareaHeight();
+      saveSetting('grok_user_input', userInput.value);
+    });
 
-    // Initial adjustment
-    adjustTextareaHeight();
+    // Event listeners for settings inputs
+    apiKeyInput.addEventListener('input', () => saveSetting('grok_api_key', apiKeyInput.value));
+    modelInput.addEventListener('input', () => saveSetting('grok_model', modelInput.value));
+    maxTokensInput.addEventListener('input', () => saveSetting('grok_max_tokens', maxTokensInput.value));
+    systemPromptInput.addEventListener('input', () => saveSetting('grok_system_prompt', systemPromptInput.value));
 
     // Function to add or update a message in the chat
     function addOrUpdateMessage(content, isUser, messageId = null) {
@@ -319,7 +333,7 @@
           }
         }
 
-        // Add AI response to conversation history
+        // Add messages to conversation history and save
         if (!isEditing) {
           conversationHistory.push({ role: 'user', content: message });
           conversationHistory.push({ role: 'assistant', content: accumulatedContent });
@@ -329,6 +343,7 @@
           isEditing = false;
           editingMessageId = null;
         }
+        saveConversationHistory();
 
         return accumulatedContent;
       } catch (error) {
@@ -349,6 +364,7 @@
       // Populate textarea with last message
       userInput.value = lastMessageContent;
       adjustTextareaHeight();
+      saveSetting('grok_user_input', userInput.value);
 
       // Remove last user message and its AI response from UI and history
       lastUserMessageDiv.remove();
@@ -362,12 +378,29 @@
       } else if (conversationHistory.length >= 1 && conversationHistory[conversationHistory.length - 1].role === 'user') {
         conversationHistory.pop(); // Remove user message
       }
+      saveConversationHistory();
 
       // Update edit button visibility
       const hasUserMessage = chatContainer.querySelector('.user-message') !== null;
       editButton.classList.toggle('hidden', !hasUserMessage);
 
       isEditing = true;
+    }
+
+    // Function to clear chat
+    function clearChat() {
+      conversationHistory = [];
+      chatContainer.innerHTML = '';
+      localStorage.removeItem('grok_conversation_history');
+      
+      // Reinitialize welcome message
+      const welcomeMessage = 'Hello! I am Grok, created by xAI. Configure the settings above and type your message below to start chatting!';
+      addOrUpdateMessage(welcomeMessage, false);
+      conversationHistory.push({ role: 'assistant', content: welcomeMessage });
+      saveConversationHistory();
+
+      // Update edit button visibility
+      editButton.classList.add('hidden');
     }
 
     // Function to copy conversation to clipboard
@@ -451,6 +484,7 @@
     editButton.addEventListener('click', editLastMessage);
     downloadButton.addEventListener('click', downloadConversation);
     copyButton.addEventListener('click', copyConversation);
+    clearButton.addEventListener('click', clearChat);
 
     sendButton.addEventListener('click', async () => {
       const message = userInput.value.trim();
@@ -459,6 +493,7 @@
       addOrUpdateMessage(message, true);
       userInput.value = '';
       adjustTextareaHeight();
+      saveSetting('grok_user_input', '');
 
       await streamGrokAPI(message);
     });
@@ -470,10 +505,9 @@
       }
     });
 
-    // Initialize with a welcome message
-    const welcomeMessage = 'Hello! I am Grok, created by xAI. Configure the settings above and type your message below to start chatting!';
-    addOrUpdateMessage(welcomeMessage, false);
-    conversationHistory.push({ role: 'assistant', content: welcomeMessage });
+    // Initialize by loading settings and conversation history
+    loadSettings();
+    loadConversationHistory();
   </script>
 </body>
 </html>
