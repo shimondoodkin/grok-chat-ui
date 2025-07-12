@@ -183,8 +183,8 @@
     // Load settings and input from localStorage
     function loadSettings() {
       apiKeyInput.value = localStorage.getItem('grok_api_key') || 'YOUR_API_KEY_HERE';
-      modelInput.value = localStorage.getItem('grok_model') || 'grok-3';
-      maxTokensInput.value = localStorage.getItem('grok_max_tokens') || '500';
+      modelInput.value = localStorage.getItem('grok_model') || 'grok-4-0709' || 'grok-3';
+      maxTokensInput.value = localStorage.getItem('grok_max_tokens') || '150';
       systemPromptInput.value = localStorage.getItem('grok_system_prompt') || 
         'You are Grok, a helpful AI created by xAI. Provide accurate and concise answers. For complex questions, include step-by-step reasoning before giving the final answer, formatted in markdown.';
       userInput.value = localStorage.getItem('grok_user_input') || '';
