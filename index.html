@@ -127,6 +127,18 @@
         Copy
       </button>
       <button
+        id="saveJsonButton"
+        class="flex-1 bg-teal-500 text-white p-2 rounded-lg hover:bg-teal-600"
+      >
+        Save as JSON
+      </button>
+      <button
+        id="loadJsonButton"
+        class="flex-1 bg-indigo-500 text-white p-2 rounded-lg hover:bg-indigo-600"
+      >
+        Load from JSON
+      </button>
+      <button
         id="downloadButton"
         class="flex-1 bg-green-500 text-white p-2 rounded-lg hover:bg-green-600"
       >
@@ -172,6 +184,8 @@
     const downloadButton = document.getElementById('downloadButton');
     const editButton = document.getElementById('editButton');
     const copyButton = document.getElementById('copyButton');
+    const saveJsonButton = document.getElementById('saveJsonButton');
+    const loadJsonButton = document.getElementById('loadJsonButton');
     const clearButton = document.getElementById('clearButton');
 
     // Conversation history
@@ -481,10 +495,79 @@
       URL.revokeObjectURL(url);
     }
 
+    // Function to save conversation as JSON
+    function saveConversationAsJson() {
+      const jsonContent = JSON.stringify(conversationHistory, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'conversation.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Function to load conversation from JSON
+    function loadConversationFromJson() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const loadedHistory = JSON.parse(e.target.result);
+            if (!Array.isArray(loadedHistory)) {
+              throw new Error('Invalid JSON format: Expected an array');
+            }
+
+            // Validate that each item has role and content
+            const isValid = loadedHistory.every(msg => 
+              msg && typeof msg === 'object' && 
+              ['user', 'assistant'].includes(msg.role) && 
+              typeof msg.content === 'string'
+            );
+
+            if (!isValid) {
+              throw new Error('Invalid JSON format: Each message must have a valid role and content');
+            }
+
+            // Clear current conversation
+            clearChat();
+
+            // Load new conversation
+            conversationHistory = loadedHistory;
+            conversationHistory.forEach((msg) => {
+              if (msg.content.trim()) {
+                addOrUpdateMessage(msg.content, msg.role === 'user');
+              }
+            });
+            saveConversationHistory();
+
+            // Update edit button visibility
+            const hasUserMessage = chatContainer.querySelector('.user-message') !== null;
+            editButton.classList.toggle('hidden', !hasUserMessage);
+
+            alert('Conversation loaded successfully!');
+          } catch (error) {
+            console.error('Error loading JSON:', error);
+            alert('Failed to load conversation. Please ensure the file is a valid JSON array of messages.');
+          }
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    }
+
     // Event listeners
     editButton.addEventListener('click', editLastMessage);
     downloadButton.addEventListener('click', downloadConversation);
     copyButton.addEventListener('click', copyConversation);
+    saveJsonButton.addEventListener('click', saveConversationAsJson);
+    loadJsonButton.addEventListener('click', loadConversationFromJson);
     clearButton.addEventListener('click', clearChat);
 
     sendButton.addEventListener('click', async () => {
