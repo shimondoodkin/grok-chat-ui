@@ -6,13 +6,6 @@
   <title>Grok AI Chat with Streaming</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js" integrity="sha512-4zM2S1qT25/bYb+4a1jL0JKhD6o0ltUTh4D9jWpPQnSYr8s1Nosn4hAI0vdqFPxm1lVyax2jHIlnpCSsL2B7nkw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" integrity="sha512-tN7Ec6zAFaVSG3TpNAKtk4DOHNpSwKHxxrsiw4Elwbz9A0hV/YbCCLr64LCm5jglpQ3Avrqu+w==
-" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" integrity="sha512-7Z9J3l1+EYfeaQskFzAAMzOHxGCLhaTROYd4tN/YaFoeaS9oYvW55hZL6L2B4uW4S6d0p4nWNSAu5aS4Y3eLd2Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js" integrity="sha512-LQe/3sM8y0jW3sH1+9g8V+vDbz2b2eV0n0jOnl4evS0yB3fWVY5oZ+TwS9uW3Ycl6+3IuJ7g9M3oL8nQ2O+0gQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js" integrity="sha512-4vW8qS0B2POYh5yby4C1dz1Dm4k3S2Va+1vkx0W4Me3+0pY1hZ2G7iAx  
-" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <style>
     .chat-container {
       max-height: 80vh;
@@ -40,7 +33,7 @@
       margin: 0.5em 0;
       padding-left: 1.5em;
     }
-    .markdown-content code:not(.language-math) {
+    .markdown-content code {
       background-color: #f3f4f6;
       padding: 2px 4px;
       border-radius: 4px;
@@ -50,10 +43,6 @@
       padding: 10px;
       border-radius: 4px;
       overflow-x: auto;
-    }
-    .markdown-content pre code {
-      background-color: transparent;
-      padding: 0;
     }
     #userInput {
       resize: none;
@@ -120,7 +109,7 @@
           id="systemPrompt"
           class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows="4"
-        >You are Grok, a helpful AI created by xAI. Provide accurate and concise answers. For complex questions, include step-by-step reasoning before giving the final answer, formatted in markdown. Support LaTeX for equations and code blocks with syntax highlighting.</textarea>
+        >You are Grok, a helpful AI created by xAI. Provide accurate and concise answers. For complex questions, include step-by-step reasoning before giving the final answer, formatted in markdown.</textarea>
       </div>
     </div>
     <div id="chatContainer" class="chat-container mb-4 p-4 border rounded-lg bg-gray-50"></div>
@@ -204,16 +193,6 @@
     let isEditing = false;
     let editingMessageId = null;
     const welcomeMessage = 'Hello! I am Grok, created by xAI. Configure the settings above and type your message below to start chatting!';
-    // Configure MathJax
-    MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']],
-      },
-      options: {
-        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
-      }
-    };
 
     // Load settings and input from localStorage
     function loadSettings() {
@@ -221,7 +200,7 @@
       modelInput.value = localStorage.getItem('grok_model') || 'grok-4-0709' || 'grok-3';
       maxTokensInput.value = localStorage.getItem('grok_max_tokens') || '150';
       systemPromptInput.value = localStorage.getItem('grok_system_prompt') || 
-        'You are Grok, a helpful AI created by xAI. Provide accurate and concise answers. For complex questions, include step-by-step reasoning before giving the final answer, formatted in markdown. Support LaTeX for equations and code blocks with syntax highlighting.';
+        'You are Grok, a helpful AI created by xAI. Provide accurate and concise answers. For complex questions, include step-by-step reasoning before giving the final answer, formatted in markdown.';
       userInput.value = localStorage.getItem('grok_user_input') || '';
       adjustTextareaHeight();
     }
@@ -301,15 +280,8 @@
         if (isUser) messageDiv.id = `user-message-${Date.now()}`;
         chatContainer.appendChild(messageDiv);
       }
-      // Parse markdown with marked
-      const htmlContent = marked.parse(content);
-      messageDiv.innerHTML = `<div class="markdown-content">${htmlContent}</div>`;
-      // Highlight code with Prism.js
-      Prism.highlightAllUnder(messageDiv);
-      // Typeset equations with MathJax
-      MathJax.typesetPromise([messageDiv]).then(() => {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      }).catch((err) => console.error('MathJax typesetting error:', err));
+      messageDiv.innerHTML = `<div class="markdown-content">${marked.parse(content)}</div>`;
+      chatContainer.scrollTop = chatContainer.scrollHeight;
 
       // Show edit button if there’s at least one user message
       const hasUserMessage = chatContainer.querySelector('.user-message') !== null;
